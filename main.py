@@ -1,35 +1,40 @@
-from fastapi import FastAPI
-import re
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.preprocessing.text import Tokenizer
+from fastapi.staticfiles import StaticFiles
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from keras.models import load_model
+import numpy as np
 import pickle
+import re
 
 
-app = FastAPI()
-@app.get("/")
-def greet():
-    return {"hello eva"}
 
-"we are going to make some constants like:"
-"A. MODEL PATH"
-"B. TOKENIZER PATH"
-"C. MAX SEQUENCE LENGTH"
-"D. EMOTION LABELS"
-"E. EMOTION EMOJIS"
 
-#A. MODEL PATH (BiGRU)
+"""
+1. We are going to make some constants like:
+A. Model Path (BiGRU)
+B. Tokenizer Path
+C. Max Sequence Length
+D. Emotion Labels
+E. Emotion emojis
+"""
+#A. Model Path (BiGRU)
 model_path = "Artifacts/BiGRU_Model.keras"
 
-#B. TOKENIZER PATH
+#B. Tokenizer Path
 tokenizer_path = "Artifacts/tokenizer.pkl"
 
-#c . MAX SEQUENCE LENGTH
+#C. Max Sequence Length
 max_sequence_length = 50
 
-#D. Emotional labels
-emotion_labels = ['anger', 'fear', 'joy', 'love', 'sadness', 'surprise']
+#D. Emotion Labels
+emotion_labels = ["sadness", "joy", "love", "anger", "fear", "surprise"]
 
-#E. Emotional emojis
+#E. Emotion emojis
 EMOTION_EMOJIS = {
     "sadness": "😢",
     "joy": "😄",
@@ -40,28 +45,31 @@ EMOTION_EMOJIS = {
 }
 
 
-""" 
-2. Preprocess the upcoming text data for prediction
-cleans raw text so it matches the format used while training
-A. convert text to lowercase
-B. remove apostrophes(can't->cant)
-C. remove special characters and punctuation
-D.remove extra spaces
 
 """
-def preprocess_text(text:str)->str:
-  text = text.lower() #A. convert text to lowercase
-  text = re.sub(r"\'", "", text) #B. remove apostrophes(can't->cant)
-  text = re.sub(r"[^a-zA-Z0-9\s]", " ", text) #C. remove special characters and punctuation
-  text = re.sub(r"\s+", " ", text).strip() #D.remove extra spaces
-  return text
+2. Preprocess the upcoming text
+Cleans raw text so it matches the format used while training.
+A. Convert the text to lowercase. -done
+B. Remove apostrophes (e.g can't -> cant). -done
+C. Remove Special Characters and Punctuation. -done
+D. Remove extra spaces -done
+"""
+
+def preprocess_text(text: str)->str:
+    text = text.lower()
+    text = re.sub(r"'","",text)
+    text = re.sub(r"[^a-z0-9\s]"," ", text)
+    text = re.sub(r"\s+", " ",text).strip()
+    return text
+
 
 """
-3. Request and Response Schema
-A. text input
-B. Prediction response
-C. Healthy response(server health check)
+3. Request and Response Schemas
+A. Text Input -> Input schema the text sent by user. -done
+B. Prediciton Response -> Output schema the emotion to predict. -done
+C. Health Response (Server health check)
 """
+
 class TextInput(BaseModel):
     text : str = Field(
         ...,
@@ -81,12 +89,13 @@ class HealthResponse(BaseModel):
     status: str
     model_loaded: bool
 
-
 """
-4. MODEL LOADING AND LIFESPAN MANAGEMENT
-A. Load the model and tokenizer
+4. Model Loading and LifeSpan Management
+Load the model and toknizer once the server starts up.
 """
+dl_model = {} #{1. BiGRU, 2. Tokenizer}-> True , {} -> False
 
+@asynccontextmanager
 async def lifespan(app: FastAPI):
     print('Loading the model and tokenizer...')
     dl_model["BiGRU"] = load_model(model_path)                      #BiGRU Model
@@ -97,3 +106,22 @@ async def lifespan(app: FastAPI):
     yield #Pause, model is laoded and server is running and at this point model wait karega for request
 
     dl_model.clear() #Ek baar server band ho gaya uske baad model ko memory se hata do.
+               
+
+"""
+5. Mount the static files to the FastAPI app
+A. Enable CORS (Cross-Origin Resource Sharing) to allow requests from different origins.
+"""
+app = FastAPI(
+    lifespan=lifespan
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.mount('/static', StaticFiles(directory="static"), name="static")
