@@ -20,5 +20,20 @@ tokenizer_path = "Artifacts/tokenizer.pkl"
 #c . MAX SEQUENCE LENGTH
 max_sequence_length = 50
 
- #D. Emotional labels
- 
+#D. Emotional labels
+emotion_labels = ['anger', 'fear', 'joy', 'love', 'sadness', 'surprise']
+
+#E. Emotional emojis
+EMOTION_EMOJIS = {
+    "sadness": "😢",
+    "joy": "😄",
+    "love": "❤️",
+    "anger": "😠",
+    "fear": "😨",
+    "surprise": "😲",
+}
+
+""" 2. Preprocess the upcoming text data for prediction """
+
+
+
