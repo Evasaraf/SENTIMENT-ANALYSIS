@@ -1,6 +1,6 @@
-import re
-
 from fastapi import FastAPI
+import re
+from pydantic import BaseModel, Field
 app = FastAPI()
 @app.get("/")
 def greet():
@@ -35,6 +35,7 @@ EMOTION_EMOJIS = {
     "surprise": "😲",
 }
 
+
 """ 
 2. Preprocess the upcoming text data for prediction
 cleans raw text so it matches the format used while training
@@ -51,4 +52,27 @@ def preprocess_text(text:str)->str:
   text = re.sub(r"\s+", " ", text).strip() #D.remove extra spaces
   return text
 
+"""
+3. Request and Response Schema
+A. text input
+B. Prediction response
+C. Healthy response(server health check)
+"""
+class TextInput(BaseModel):
+    text : str = Field(
+        ...,
+        min_length=1,
+        max_length=2000,
+        description="The sentence to analyze",
+        json_schema_extra={"example": "I feel so happy and excited"}
+        )
 
+class PredictionResponse(BaseModel):
+    text: str
+    predicted_emotion: str
+    confidence : float
+    all_probabilites: dict[str, float]
+
+class HealthResponse(BaseModel):
+    status: str
+    model_loaded: bool
