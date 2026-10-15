@@ -1,6 +1,10 @@
 from fastapi import FastAPI
 import re
 from pydantic import BaseModel, Field
+from keras.models import load_model
+import pickle
+
+
 app = FastAPI()
 @app.get("/")
 def greet():
@@ -76,3 +80,20 @@ class PredictionResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     model_loaded: bool
+
+
+"""
+4. MODEL LOADING AND LIFESPAN MANAGEMENT
+A. Load the model and tokenizer
+"""
+
+async def lifespan(app: FastAPI):
+    print('Loading the model and tokenizer...')
+    dl_model["BiGRU"] = load_model(model_path)                      #BiGRU Model
+    with open(tokenizer_path, 'rb') as file:
+        dl_model["Tokenizer"] = pickle.load(file)
+    print('Model are loaded successfully...')   
+
+    yield #Pause, model is laoded and server is running and at this point model wait karega for request
+
+    dl_model.clear() #Ek baar server band ho gaya uske baad model ko memory se hata do.
