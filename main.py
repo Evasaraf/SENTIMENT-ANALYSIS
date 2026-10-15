@@ -1,3 +1,5 @@
+import re
+
 from fastapi import FastAPI
 app = FastAPI()
 @app.get("/")
@@ -33,7 +35,20 @@ EMOTION_EMOJIS = {
     "surprise": "😲",
 }
 
-""" 2. Preprocess the upcoming text data for prediction """
+""" 
+2. Preprocess the upcoming text data for prediction
+cleans raw text so it matches the format used while training
+A. convert text to lowercase
+B. remove apostrophes(can't->cant)
+C. remove special characters and punctuation
+D.remove extra spaces
 
+"""
+def preprocess_text(text:str)->str:
+  text = text.lower() #A. convert text to lowercase
+  text = re.sub(r"\'", "", text) #B. remove apostrophes(can't->cant)
+  text = re.sub(r"[^a-zA-Z0-9\s]", " ", text) #C. remove special characters and punctuation
+  text = re.sub(r"\s+", " ", text).strip() #D.remove extra spaces
+  return text
 
 
