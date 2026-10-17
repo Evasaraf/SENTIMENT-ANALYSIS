@@ -1,3 +1,4 @@
+
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.preprocessing.text import Tokenizer
 from fastapi.staticfiles import StaticFiles
@@ -125,3 +126,66 @@ app.add_middleware(
 )
 
 app.mount('/static', StaticFiles(directory="static"), name="static")
+
+
+
+"""
+6. API Endpoints.
+A. Server UI at homepage ('/')
+B. Health Check Endpoint ('/health')
+C. Predict Emotion Endpoint ('/predict')
+"""
+
+#A. Server UI at homepage ('/')
+@app.get('/', include_in_schema=False)
+def server_ui():
+    return FileResponse('static/index.html')
+
+#B. Health Check Endpoint ('/health')
+@app.get('/health', response_model=HealthResponse)
+def health_check():
+    return HealthResponse(status="Server is running", model_loaded=bool(dl_model))
+
+#C. Predict Emotion Endpoint ('/predict')
+@app.post('/predict', response_model=PredictionResponse)
+def predict_emotion(text_input: TextInput):
+    """
+    1. Cleans the input sentences.
+    2. Convert the words into numeric using tokenizer.
+    3. Pad the sequences to ensure uniform length.
+    4. Run prediction using the BiGRU model.
+    5. Return the top emotion and full probability breakdown.
+    """
+
+    BiGRU_model     = dl_model.get("BiGRU")
+    tokenizer_model = dl_model.get("Tokenizer")
+
+    if BiGRU_model is None or tokenizer_model is None:
+        raise HTTPException(status_code=503, detail="Model is not loaded yet. Please try again later.")
+
+    #1. 
+    cleaned_text = preprocess_text(text_input.text)
+
+    #2. and 3. 
+    tokenized_text = tokenizer_model.texts_to_sequences([cleaned_text])
+    padded_sequence = pad_sequences(
+        tokenized_text,
+        maxlen=max_sequence_length,
+        padding="post",
+        truncating="post"
+    )
+
+    probabilites     = BiGRU_model.predict(padded_sequence)[0]
+
+    top_emotion_index = int(np.argmax(probabilites)) # 4
+    all_probabilites =  {
+        label: float(prob) for prob, label in zip(probabilites, emotion_labels)
+          
+    }
+
+    return PredictionResponse(
+        text = text_input.text,
+        predicted_emotion = emotion_labels[top_emotion_index],
+        confidence = float(probabilites[top_emotion_index]), 
+        all_probabilites = all_probabilites
+    )
